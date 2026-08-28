@@ -32,7 +32,7 @@ body {
   gap: 8px;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 767px) {
   .page-header {
     flex-direction: column;
     align-items: stretch;
@@ -45,6 +45,27 @@ body {
   .page-header-actions .ant-btn {
     width: 100%;
   }
+}
+
+.equipment-list-item {
+  padding: 12px !important;
+  margin-bottom: 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.equipment-list-item-selected {
+  background: #e6f4ff;
+  border-color: #91caff;
+}
+
+.equipment-list-item .ant-list-item-meta-title {
+  margin-bottom: 4px !important;
+}
+
+.equipment-list-item .ant-list-item-action {
+  margin-inline-start: 8px !important;
 }
 
 .scan-box {

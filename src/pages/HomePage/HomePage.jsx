@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Input, List, Row, Space, Spin, Tag, Typography, message } from 'antd'
 import { BarcodeOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuthStore } from 'entities/auth'
 import { fetchRooms, searchEquipment } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
+import { withReturnPath } from 'shared/utils/navigation'
 
 const { Title, Text } = Typography
 
 export const HomePage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuthStore()
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +93,12 @@ export const HomePage = () => {
             renderItem={(item) => (
               <List.Item
                 actions={[
-                  <Button type="link" onClick={() => navigate(ROUTES.EQUIPMENT(item.assetCode))}>详情</Button>,
+                  <Button
+                    type="link"
+                    onClick={() => navigate(ROUTES.EQUIPMENT(item.assetCode), { state: withReturnPath(location) })}
+                  >
+                    详情
+                  </Button>,
                 ]}
               >
                 <List.Item.Meta
@@ -115,7 +122,18 @@ export const HomePage = () => {
                   <Title level={5} style={{ margin: 0 }}>{room.roomCode}</Title>
                   <Text type="secondary">{room.roomName}</Text>
                   <div style={{ marginTop: 8 }}>
-                    <Tag color="blue">{room.equipmentCount || 0} 台设备</Tag>
+                    <Space size={[4, 4]} wrap>
+                      <Tag color="blue">{room.equipmentCount || 0} 台设备</Tag>
+                      <Tag
+                        style={{
+                          color: '#cf1322',
+                          background: '#fff1f0',
+                          borderColor: '#ffccc7',
+                        }}
+                      >
+                        已遗失 {room.lostEquipmentCount || 0}
+                      </Tag>
+                    </Space>
                   </div>
                 </Card>
               </Col>

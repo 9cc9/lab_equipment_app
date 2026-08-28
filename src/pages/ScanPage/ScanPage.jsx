@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Input, Space, Typography, Upload, message } from 'antd'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Alert, Button, Card, Input, Space, Typography, Upload } from 'antd'
 import { ArrowLeftOutlined, CameraOutlined, ScanOutlined } from '@ant-design/icons'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+import { fetchEquipmentByCode } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
+import { withReturnPath } from 'shared/utils/navigation'
 
 const { Title, Text } = Typography
 const SCANNER_ID = 'equipment-barcode-scanner'
@@ -22,6 +24,7 @@ const canUseLiveCamera = () => {
 
 export const ScanPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const scannerRef = useRef(null)
   const processingRef = useRef(false)
   const [manualCode, setManualCode] = useState('')
@@ -47,9 +50,17 @@ export const ScanPage = () => {
     const assetCode = (code || '').trim()
     if (!assetCode || processingRef.current) return
     processingRef.current = true
-    await stopScanner()
-    navigate(ROUTES.EQUIPMENT(assetCode))
-  }, [navigate, stopScanner])
+    setErrorMsg('')
+    try {
+      await fetchEquipmentByCode(assetCode)
+      await stopScanner()
+      navigate(ROUTES.EQUIPMENT(assetCode), { state: withReturnPath(location) })
+    } catch {
+      setErrorMsg(`未找到编号为「${assetCode}」的设备，请确认条码是否正确，或联系管理员导入数据`)
+      setStatus('idle')
+      processingRef.current = false
+    }
+  }, [navigate, location, stopScanner])
 
   const startLiveScan = async () => {
     if (!liveCameraAvailable) {
@@ -112,7 +123,7 @@ export const ScanPage = () => {
       scanner.clear()
       await navigateToCode(result)
     } catch {
-      message.error('未能识别条形码，请对准条码重拍或手动输入编号')
+      setErrorMsg('未能从照片中识别条形码，请对准条码重拍，或改用手动输入编号')
       setStatus('idle')
     }
     return false

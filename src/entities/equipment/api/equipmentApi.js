@@ -24,6 +24,9 @@ export const searchEquipment = (keyword) =>
 export const updateEquipmentStatus = (assetCode, payload) =>
   apiClient.post(API_ENDPOINTS.EQUIPMENT.UPDATE_STATUS(assetCode), payload)
 
+export const batchUpdateEquipmentStatus = (payload) =>
+  apiClient.post(API_ENDPOINTS.EQUIPMENT.BATCH_UPDATE_STATUS, payload)
+
 export const fetchEquipmentChanges = (equipmentId) =>
   apiClient.get(API_ENDPOINTS.EQUIPMENT.CHANGES(equipmentId))
 

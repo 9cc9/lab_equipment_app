@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
   Card,
   Descriptions,
+  Empty,
   Form,
   Input,
   Select,
@@ -21,12 +22,14 @@ import {
   updateEquipmentStatus,
 } from 'entities/equipment'
 import { ROUTES, USAGE_STATUS_OPTIONS } from 'shared/constants/routes'
+import { navigateBack } from 'shared/utils/navigation'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 export const EquipmentDetailPage = () => {
   const { assetCode } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -57,6 +60,7 @@ export const EquipmentDetailPage = () => {
         setChanges(Array.isArray(changeData) ? changeData : [])
       }
     } catch (error) {
+      setEquipment(null)
       message.error(error.message || '加载设备失败')
     } finally {
       setLoading(false)
@@ -85,6 +89,8 @@ export const EquipmentDetailPage = () => {
     }
   }
 
+  const handleBack = () => navigateBack(navigate, location, ROUTES.HOME)
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 48 }}>
@@ -94,7 +100,31 @@ export const EquipmentDetailPage = () => {
   }
 
   if (!equipment) {
-    return null
+    return (
+      <div className="page-container">
+        <div className="page-header">
+          <Space>
+            <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>返回</Button>
+            <Title level={3} style={{ margin: 0 }}>设备详情</Title>
+          </Space>
+        </div>
+        <Card>
+          <Empty
+            description={`未找到编号为「${assetCode}」的设备`}
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text type="secondary">
+                请确认条码或编号是否正确，或联系管理员确认设备是否已导入
+              </Text>
+              <Button type="primary" onClick={handleBack}>
+                返回上一页
+              </Button>
+            </Space>
+          </Empty>
+        </Card>
+      </div>
+    )
   }
 
   const statusOptions = [...USAGE_STATUS_OPTIONS]
@@ -106,7 +136,7 @@ export const EquipmentDetailPage = () => {
     <div className="page-container">
       <div className="page-header">
         <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(ROUTES.SCAN)}>返回扫码</Button>
+          <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>返回</Button>
           <Title level={3} style={{ margin: 0 }}>{equipment.assetCode}</Title>
         </Space>
       </div>
@@ -163,6 +193,12 @@ export const EquipmentDetailPage = () => {
               render: (v) => v || '-',
             },
             { title: '新值', dataIndex: 'newValue' },
+            {
+              title: '备注',
+              dataIndex: 'remark',
+              ellipsis: true,
+              render: (v) => v || '-',
+            },
             { title: '操作人', dataIndex: 'operatorName', width: 100 },
             {
               title: '时间',

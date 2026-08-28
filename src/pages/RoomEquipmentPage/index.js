@@ -1,0 +1,1 @@
+export { RoomEquipmentPage } from './RoomEquipmentPage'

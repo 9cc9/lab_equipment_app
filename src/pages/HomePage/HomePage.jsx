@@ -1,0 +1,129 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button, Card, Col, Input, List, Row, Space, Spin, Tag, Typography, message } from 'antd'
+import { BarcodeOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
+import { useAuthStore } from 'entities/auth'
+import { fetchRooms, searchEquipment } from 'entities/equipment'
+import { ROUTES } from 'shared/constants/routes'
+
+const { Title, Text } = Typography
+
+export const HomePage = () => {
+  const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
+  const [rooms, setRooms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [keyword, setKeyword] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+
+  useEffect(() => {
+    loadRooms()
+  }, [])
+
+  const loadRooms = async () => {
+    setLoading(true)
+    try {
+      const data = await fetchRooms()
+      setRooms(Array.isArray(data) ? data : [])
+    } catch (error) {
+      message.error(error.message || '加载房间失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!keyword.trim()) {
+      setSearchResults([])
+      return
+    }
+    setSearching(true)
+    try {
+      const data = await searchEquipment(keyword.trim())
+      setSearchResults(Array.isArray(data) ? data : [])
+    } catch (error) {
+      message.error(error.message || '搜索失败')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    navigate(ROUTES.LOGIN)
+  }
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <div>
+          <Title level={3} style={{ margin: 0 }}>实验室设备管理</Title>
+          <Text type="secondary">欢迎，{user?.name || user?.username}</Text>
+        </div>
+        <Space className="page-header-actions" wrap>
+          <Button icon={<BarcodeOutlined />} type="primary" onClick={() => navigate(ROUTES.SCAN)}>
+            扫码更新
+          </Button>
+          <Button icon={<ImportOutlined />} onClick={() => navigate(ROUTES.IMPORT)}>
+            导入数据
+          </Button>
+          <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+            退出
+          </Button>
+        </Space>
+      </div>
+
+      <Card title="搜索设备" style={{ marginBottom: 16 }}>
+        <Space.Compact style={{ width: '100%' }}>
+          <Input
+            placeholder="输入编号或名称"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onPressEnter={handleSearch}
+          />
+          <Button type="primary" loading={searching} onClick={handleSearch}>搜索</Button>
+        </Space.Compact>
+        {searchResults.length > 0 && (
+          <List
+            style={{ marginTop: 16 }}
+            dataSource={searchResults}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Button type="link" onClick={() => navigate(ROUTES.EQUIPMENT(item.assetCode))}>详情</Button>,
+                ]}
+              >
+                <List.Item.Meta
+                  title={`${item.assetCode} · ${item.name}`}
+                  description={`${item.roomCode || '-'} · ${item.usageStatus || '-'}`}
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
+
+      <Card title="按房间浏览">
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 32 }}><Spin /></div>
+        ) : (
+          <Row gutter={[12, 12]}>
+            {rooms.map((room) => (
+              <Col xs={12} sm={8} md={6} key={room.id}>
+                <Card hoverable onClick={() => navigate(ROUTES.ROOM(room.roomCode))}>
+                  <Title level={5} style={{ margin: 0 }}>{room.roomCode}</Title>
+                  <Text type="secondary">{room.roomName}</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Tag color="blue">{room.equipmentCount || 0} 台设备</Tag>
+                  </div>
+                </Card>
+              </Col>
+            ))}
+            {rooms.length === 0 && <Text type="secondary">暂无房间数据，请先导入 Excel</Text>}
+          </Row>
+        )}
+      </Card>
+    </div>
+  )
+}

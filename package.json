@@ -1,0 +1,26 @@
+{
+  "name": "lab_equipment_app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "cert:generate": "node scripts/generate-dev-cert.mjs",
+    "dev:https": "node scripts/generate-dev-cert.mjs && VITE_DEV_HTTPS=true vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.5.1",
+    "antd": "^5.21.5",
+    "html5-qrcode": "^2.3.8",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^6.30.2",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.2.4"
+  }
+}

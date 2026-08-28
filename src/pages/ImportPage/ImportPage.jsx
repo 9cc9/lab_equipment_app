@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Space, Typography, Upload, message } from 'antd'
-import { ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons'
-import { importEquipmentExcel } from 'entities/equipment'
+import { ArrowLeftOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { exportEquipmentExcel, importEquipmentExcel } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
 
 const { Title, Paragraph, Text } = Typography
@@ -10,6 +10,7 @@ const { Title, Paragraph, Text } = Typography
 export const ImportPage = () => {
   const navigate = useNavigate()
   const [uploading, setUploading] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [result, setResult] = useState(null)
 
   const handleUpload = async (file) => {
@@ -27,16 +28,37 @@ export const ImportPage = () => {
     return false
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await exportEquipmentExcel()
+      message.success('导出成功')
+    } catch (error) {
+      message.error(error.message || '导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(ROUTES.HOME)}>返回</Button>
-          <Title level={3} style={{ margin: 0 }}>导入设备数据</Title>
+          <Title level={3} style={{ margin: 0 }}>导入 / 导出设备数据</Title>
         </Space>
       </div>
 
-      <Card>
+      <Card title="导出数据" style={{ marginBottom: 16 }}>
+        <Paragraph>
+          按导入模板的「完整表」格式导出当前系统中的全部设备数据，包含扫码/批量更新后的现状与房间信息。
+        </Paragraph>
+        <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
+          导出 Excel
+        </Button>
+      </Card>
+
+      <Card title="导入数据">
         <Paragraph>
           请上传 Excel 文件（读取「完整表」Sheet），系统将按资产编号导入或更新设备，并自动解析房间信息。
         </Paragraph>

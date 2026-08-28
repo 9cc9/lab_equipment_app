@@ -7,4 +7,5 @@ export {
   batchUpdateEquipmentStatus,
   fetchEquipmentChanges,
   importEquipmentExcel,
+  exportEquipmentExcel,
 } from './api/equipmentApi'

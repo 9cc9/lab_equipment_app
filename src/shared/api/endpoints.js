@@ -16,5 +16,6 @@ export const API_ENDPOINTS = {
   },
   ADMIN: {
     IMPORT: '/admin/import.json',
+    EXPORT: '/admin/export.json',
   },
 }

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Input, List, Row, Space, Spin, Tag, Typography, message } from 'antd'
-import { BarcodeOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
+import { BarcodeOutlined, DownloadOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuthStore } from 'entities/auth'
-import { fetchRooms, searchEquipment } from 'entities/equipment'
+import { exportEquipmentExcel, fetchRooms, searchEquipment } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
 import { withReturnPath } from 'shared/utils/navigation'
 
@@ -17,6 +17,7 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [searching, setSearching] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [searchResults, setSearchResults] = useState([])
 
   useEffect(() => {
@@ -56,6 +57,18 @@ export const HomePage = () => {
     navigate(ROUTES.LOGIN)
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await exportEquipmentExcel()
+      message.success('导出成功')
+    } catch (error) {
+      message.error(error.message || '导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -69,6 +82,9 @@ export const HomePage = () => {
           </Button>
           <Button icon={<ImportOutlined />} onClick={() => navigate(ROUTES.IMPORT)}>
             导入数据
+          </Button>
+          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
+            导出数据
           </Button>
           <Button icon={<LogoutOutlined />} onClick={handleLogout}>
             退出

@@ -3,9 +3,14 @@ import { API_ENDPOINTS } from 'shared/api/endpoints'
 
 export const fetchRooms = () => apiClient.get(API_ENDPOINTS.ROOM.LIST)
 
-export const fetchRoomEquipment = (roomCode, keyword) => {
-  const url = keyword
-    ? `${API_ENDPOINTS.ROOM.EQUIPMENT(roomCode)}?keyword=${encodeURIComponent(keyword)}`
+export const fetchRoomEquipment = (roomCode, { keyword, usageStatus, sortOrder } = {}) => {
+  const params = new URLSearchParams()
+  if (keyword) params.set('keyword', keyword)
+  if (usageStatus) params.set('usageStatus', usageStatus)
+  if (sortOrder) params.set('sortOrder', sortOrder)
+  const qs = params.toString()
+  const url = qs
+    ? `${API_ENDPOINTS.ROOM.EQUIPMENT(roomCode)}?${qs}`
     : API_ENDPOINTS.ROOM.EQUIPMENT(roomCode)
   return apiClient.get(url)
 }

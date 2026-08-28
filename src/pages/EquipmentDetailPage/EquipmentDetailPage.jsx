@@ -151,8 +151,17 @@ export const EquipmentDetailPage = () => {
           pagination={{ pageSize: 5 }}
           dataSource={changes}
           columns={[
-            { title: '字段', dataIndex: 'fieldName', width: 100 },
-            { title: '原值', dataIndex: 'oldValue' },
+            {
+              title: '字段',
+              dataIndex: 'fieldName',
+              width: 100,
+              render: (v) => ({ usageStatus: '现状', roomCode: '房间' }[v] || v),
+            },
+            {
+              title: '原值',
+              dataIndex: 'oldValue',
+              render: (v) => v || '-',
+            },
             { title: '新值', dataIndex: 'newValue' },
             { title: '操作人', dataIndex: 'operatorName', width: 100 },
             {

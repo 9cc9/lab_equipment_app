@@ -9,4 +9,4 @@ export const ROUTES = {
   EQUIPMENT: (code) => `/equipment/${encodeURIComponent(code)}`,
 }
 
-export const USAGE_STATUS_OPTIONS = ['在用', '维修中', '借出', '待报废', '已报废', '已损坏']
+export const USAGE_STATUS_OPTIONS = ['在用','在用无条码', '已遗失', '已损坏', '维修中', '借出', '待报废', '已报废']

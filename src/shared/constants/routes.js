@@ -5,6 +5,7 @@ export const ROUTES = {
   LOGIN: '/login',
   SCAN: '/scan',
   IMPORT: '/admin/import',
+  CHANGES: '/changes',
   ROOM: (code) => `/rooms/${encodeURIComponent(code)}`,
   EQUIPMENT: (code) => `/equipment/${encodeURIComponent(code)}`,
 }

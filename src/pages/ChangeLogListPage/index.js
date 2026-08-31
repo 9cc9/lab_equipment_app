@@ -1,0 +1,1 @@
+export { ChangeLogListPage } from './ChangeLogListPage'

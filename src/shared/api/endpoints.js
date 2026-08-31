@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     UPDATE_STATUS: (assetCode) => `/equipment/by-code/${encodeURIComponent(assetCode)}/update-status.json`,
     BATCH_UPDATE_STATUS: '/equipment/batch-update-status.json',
     CHANGES: (equipmentId) => `/equipment/${encodeURIComponent(equipmentId)}/changes.json`,
+    CHANGE_LOGS: '/equipment/change-logs.json',
   },
   ADMIN: {
     IMPORT: '/admin/import.json',

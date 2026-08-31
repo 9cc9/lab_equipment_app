@@ -32,6 +32,14 @@ export const batchUpdateEquipmentStatus = (payload) =>
 export const fetchEquipmentChanges = (equipmentId) =>
   apiClient.get(API_ENDPOINTS.EQUIPMENT.CHANGES(equipmentId))
 
+export const fetchEquipmentChangeLogs = ({ page = 1, pageSize = 20, fieldName } = {}) => {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('pageSize', String(pageSize))
+  if (fieldName) params.set('fieldName', fieldName)
+  return apiClient.get(`${API_ENDPOINTS.EQUIPMENT.CHANGE_LOGS}?${params.toString()}`)
+}
+
 export const importEquipmentExcel = (file) => {
   const formData = new FormData()
   formData.append('file', file)

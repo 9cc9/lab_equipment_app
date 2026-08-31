@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Input, List, Row, Space, Spin, Tag, Typography, message } from 'antd'
-import { BarcodeOutlined, DownloadOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
+import { BarcodeOutlined, DownloadOutlined, HistoryOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuthStore } from 'entities/auth'
 import { exportEquipmentExcel, fetchRooms, searchEquipment } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
@@ -125,6 +125,17 @@ export const HomePage = () => {
             )}
           />
         )}
+      </Card>
+
+      <Card title="变更设备" style={{ marginBottom: 16 }}>
+        <Space direction="vertical">
+          <Text type="secondary">
+            查看所有房间或现状发生变更的设备记录，按变更时间倒序排列
+          </Text>
+          <Button icon={<HistoryOutlined />} onClick={() => navigate(ROUTES.CHANGES)}>
+            变更设备列表
+          </Button>
+        </Space>
       </Card>
 
       <Card title="按房间浏览">

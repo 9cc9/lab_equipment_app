@@ -4,6 +4,7 @@ import { RoomEquipmentPage } from 'pages/RoomEquipmentPage'
 import { ScanPage } from 'pages/ScanPage'
 import { EquipmentDetailPage } from 'pages/EquipmentDetailPage'
 import { ImportPage } from 'pages/ImportPage'
+import { ChangeLogListPage } from 'pages/ChangeLogListPage'
 
 export const routes = [
   { path: '/login', name: 'Login', component: LoginPage, public: true },
@@ -11,5 +12,6 @@ export const routes = [
   { path: '/rooms/:roomCode', name: 'RoomEquipment', component: RoomEquipmentPage, protected: true },
   { path: '/scan', name: 'Scan', component: ScanPage, protected: true },
   { path: '/equipment/:assetCode', name: 'EquipmentDetail', component: EquipmentDetailPage, protected: true },
+  { path: '/changes', name: 'ChangeLogList', component: ChangeLogListPage, protected: true },
   { path: '/admin/import', name: 'Import', component: ImportPage, protected: true },
 ]

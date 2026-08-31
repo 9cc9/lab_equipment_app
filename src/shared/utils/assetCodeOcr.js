@@ -1,7 +1,14 @@
 /** 资产编号：S + 7 位数字，如 S2402084 */
 const STRICT_ASSET_CODE = /^S[1-9][0-9]{6}$/
 const FIVE_PREFIX_CODE = /^5[1-9][0-9]{6}$/
-const MIN_OCR_CONFIDENCE = 15
+/** 词级置信度兜底阈值（Tesseract 词级分数常偏低，优先看字符级） */
+const MIN_WORD_CONFIDENCE = 40
+/** 8 位编号每个字符的最低置信度 */
+const MIN_SYMBOL_CONFIDENCE = 70
+/** 8 位编号字符平均置信度 */
+const MIN_SYMBOL_AVG_CONFIDENCE = 80
+/** 实时 OCR 连续相同结果次数，降低单帧误识 */
+const LIVE_VOTE_REQUIRED = 3
 
 let sharedWorkerPromise = null
 let ocrBusy = false
@@ -136,19 +143,74 @@ export const parseAssetCodeToken = (text) => {
 
 const collectCandidates = (data) => {
   const candidates = []
-  const push = (token, confidence = 0) => {
+  const push = (token, confidence = 0, source = 'line') => {
+    const normalized = normalizeToken(token)
     const code = parseAssetCodeToken(token)
-    if (code) candidates.push({ code, confidence: confidence || 0 })
+    if (!code) return
+    const isExact = normalized.length === 8
+      && (STRICT_ASSET_CODE.test(normalized) || FIVE_PREFIX_CODE.test(normalized))
+    candidates.push({ code, confidence: confidence || 0, source, isExact })
   }
-  push(data.text, data.confidence)
-  for (const word of data.words || []) push(word.text, word.confidence)
+
+  for (const word of data.words || []) {
+    push(word.text, word.confidence, 'word')
+  }
+  if (!candidates.some((item) => item.isExact && item.source === 'word')) {
+    push(data.text, data.confidence, 'line')
+  }
   return candidates
 }
 
-const pickBestCandidate = (candidates) => {
+const extractCodeFromSymbols = (symbols) => {
+  const tokens = (symbols || [])
+    .map((symbol) => ({
+      text: normalizeToken(symbol.text),
+      confidence: symbol.confidence || 0,
+    }))
+    .filter((symbol) => symbol.text.length === 1)
+
+  let best = null
+  for (let index = 0; index <= tokens.length - 8; index += 1) {
+    const slice = tokens.slice(index, index + 8)
+    const raw = slice.map((symbol) => symbol.text).join('')
+    const code = parseAssetCodeToken(raw)
+    if (!code) continue
+
+    const confidences = slice.map((symbol) => symbol.confidence)
+    const minConfidence = Math.min(...confidences)
+    const avgConfidence = confidences.reduce((sum, value) => sum + value, 0) / confidences.length
+    if (minConfidence < MIN_SYMBOL_CONFIDENCE || avgConfidence < MIN_SYMBOL_AVG_CONFIDENCE) {
+      continue
+    }
+
+    const candidate = { code, avgConfidence, minConfidence }
+    if (!best || candidate.avgConfidence > best.avgConfidence) {
+      best = candidate
+    }
+  }
+  return best?.code || null
+}
+
+const pickBestCandidate = (data) => {
+  const fromSymbols = extractCodeFromSymbols(data.symbols)
+  if (fromSymbols) return fromSymbols
+
+  const candidates = collectCandidates(data)
   if (!candidates.length) return null
+
+  const exactWords = candidates.filter((item) => item.isExact && item.source === 'word')
+  if (exactWords.length) {
+    exactWords.sort((a, b) => b.confidence - a.confidence)
+    const bestWord = exactWords[0]
+    if (bestWord.confidence >= MIN_WORD_CONFIDENCE) return bestWord.code
+  }
+
   candidates.sort((a, b) => b.confidence - a.confidence)
-  return candidates[0].confidence >= MIN_OCR_CONFIDENCE ? candidates[0].code : null
+  const best = candidates[0]
+  if (best.isExact && best.source === 'word' && best.confidence >= MIN_WORD_CONFIDENCE) {
+    return best.code
+  }
+  return null
 }
 
 const getSharedWorker = async () => {
@@ -176,7 +238,7 @@ export const recognizeAssetCodeFromCanvas = async (canvas) => withOcrWorker(asyn
   const enhanced = enhanceCanvasForOcr(canvas)
   await worker.setParameters({ tessedit_pageseg_mode: '8' })
   const { data } = await worker.recognize(enhanced)
-  return pickBestCandidate(collectCandidates(data))
+  return pickBestCandidate(data)
 })
 
 export const preloadOcrWorker = () => {
@@ -192,7 +254,15 @@ export const extractAssetCodeFromImage = async (file) => {
   scaled.width = cropped.width * 4
   scaled.height = cropped.height * 4
   scaled.getContext('2d').drawImage(cropped, 0, 0, scaled.width, scaled.height)
-  return recognizeAssetCodeFromCanvas(scaled)
+
+  const primary = await recognizeAssetCodeFromCanvas(scaled)
+  if (primary) return primary
+
+  const scaledAlt = document.createElement('canvas')
+  scaledAlt.width = cropped.width * 5
+  scaledAlt.height = cropped.height * 5
+  scaledAlt.getContext('2d').drawImage(cropped, 0, 0, scaledAlt.width, scaledAlt.height)
+  return recognizeAssetCodeFromCanvas(scaledAlt)
 }
 
 /**
@@ -201,6 +271,7 @@ export const extractAssetCodeFromImage = async (file) => {
  */
 export const startLiveNumberOcr = (videoElement, onDetected, isRunning, intervalMs = 400) => {
   let timerId = null
+  let voteStreak = { code: null, count: 0 }
 
   const tick = async () => {
     if (!isRunning()) return
@@ -208,8 +279,17 @@ export const startLiveNumberOcr = (videoElement, onDetected, isRunning, interval
     if (canvas) {
       const code = await recognizeAssetCodeFromCanvas(canvas)
       if (code && isRunning()) {
-        onDetected(code)
-        return
+        if (voteStreak.code === code) {
+          voteStreak.count += 1
+        } else {
+          voteStreak = { code, count: 1 }
+        }
+        if (voteStreak.count >= LIVE_VOTE_REQUIRED) {
+          onDetected(code)
+          return
+        }
+      } else {
+        voteStreak = { code: null, count: 0 }
       }
     }
     timerId = window.setTimeout(tick, intervalMs)

@@ -18,6 +18,21 @@ body {
   padding: 16px;
 }
 
+.page-container .page-container {
+  max-width: none;
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.borrow-row-due-soon td {
+  background: #fffbe6 !important;
+}
+
+.borrow-row-overdue td {
+  background: #fff2f0 !important;
+}
+
 .page-header {
   display: flex;
   align-items: center;

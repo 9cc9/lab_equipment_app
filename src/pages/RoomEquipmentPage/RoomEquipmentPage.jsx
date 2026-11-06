@@ -11,13 +11,23 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
   message,
 } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { batchUpdateEquipmentStatus, fetchRoomEquipment, fetchRooms } from 'entities/equipment'
+import {
+  batchDeleteEquipment,
+  batchUpdateEquipmentBorrow,
+  batchUpdateEquipmentStatus,
+  deleteEquipment,
+  fetchRoomEquipment,
+  fetchRooms,
+} from 'entities/equipment'
+import { isAdminUser, useAuthStore } from 'entities/auth'
+import { AllowedBorrowTypeTag } from 'components/borrow-catalog/AllowedBorrowTypeTag'
 import { ROUTES, USAGE_STATUS_OPTIONS } from 'shared/constants/routes'
 import { withReturnPath } from 'shared/utils/navigation'
 
@@ -37,6 +47,26 @@ const SORT_OPTIONS = [
 ]
 
 const ALL_STATUS_VALUE = ''
+const ALL_BORROW_TYPE_VALUE = ''
+
+const ALLOWED_BORROW_TYPE_OPTIONS = [
+  { label: '外借 + 室内', value: 'ALL' },
+  { label: '仅外借', value: 'EXTERNAL' },
+  { label: '仅室内', value: 'IN_LAB' },
+]
+
+const BORROW_TYPE_FILTER_OPTIONS = [
+  { label: '借用类型：全量', value: ALL_BORROW_TYPE_VALUE },
+  { label: '未开放借用', value: 'OFF' },
+  ...ALLOWED_BORROW_TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+]
+
+const renderBorrowTypeCell = (record) => {
+  if (!record.borrowable) {
+    return <Tag>未开放</Tag>
+  }
+  return <AllowedBorrowTypeTag allowedBorrowTypes={record.allowedBorrowTypes} />
+}
 
 const STATUS_FILTER_OPTIONS = [
   { label: '全量', value: ALL_STATUS_VALUE },
@@ -49,16 +79,23 @@ export const RoomEquipmentPage = () => {
   const location = useLocation()
   const screens = useBreakpoint()
   const isMobile = !screens.md
+  const isAdmin = isAdminUser(useAuthStore((state) => state.user))
   const [batchForm] = Form.useForm()
+  const [borrowBatchForm] = Form.useForm()
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [usageStatus, setUsageStatus] = useState(ALL_STATUS_VALUE)
+  const [borrowType, setBorrowType] = useState(ALL_BORROW_TYPE_VALUE)
   const [sortOrder, setSortOrder] = useState('desc')
   const [equipment, setEquipment] = useState([])
   const [rooms, setRooms] = useState([])
   const [selectedRowKeys, setSelectedRowKeys] = useState([])
   const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [batchBorrowModalOpen, setBatchBorrowModalOpen] = useState(false)
   const [batchSubmitting, setBatchSubmitting] = useState(false)
+  const [batchBorrowSubmitting, setBatchBorrowSubmitting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
@@ -70,6 +107,10 @@ export const RoomEquipmentPage = () => {
         return v || undefined
       })(),
       sortOrder: overrides.sortOrder !== undefined ? overrides.sortOrder : sortOrder,
+      borrowType: (() => {
+        const v = overrides.borrowType !== undefined ? overrides.borrowType : borrowType
+        return v || undefined
+      })(),
     }
     setLoading(true)
     try {
@@ -95,10 +136,16 @@ export const RoomEquipmentPage = () => {
   useEffect(() => {
     setKeyword('')
     setUsageStatus(ALL_STATUS_VALUE)
+    setBorrowType(ALL_BORROW_TYPE_VALUE)
     setSortOrder('desc')
     setSelectedRowKeys([])
     setPage(1)
-    loadData({ keyword: '', usageStatus: ALL_STATUS_VALUE, sortOrder: 'desc' })
+    loadData({
+      keyword: '',
+      usageStatus: ALL_STATUS_VALUE,
+      borrowType: ALL_BORROW_TYPE_VALUE,
+      sortOrder: 'desc',
+    })
     loadRooms()
   }, [roomCode])
 
@@ -117,6 +164,12 @@ export const RoomEquipmentPage = () => {
     setSortOrder(value)
     setPage(1)
     loadData({ sortOrder: value })
+  }
+
+  const handleBorrowTypeChange = (value) => {
+    setBorrowType(value)
+    setPage(1)
+    loadData({ borrowType: value })
   }
 
   const handlePaginationChange = (nextPage, nextPageSize) => {
@@ -153,6 +206,39 @@ export const RoomEquipmentPage = () => {
     setBatchModalOpen(true)
   }
 
+  const openBatchBorrowModal = () => {
+    borrowBatchForm.setFieldsValue({
+      borrowable: true,
+      allowedBorrowTypes: 'ALL',
+    })
+    setBatchBorrowModalOpen(true)
+  }
+
+  const handleBatchBorrowSubmit = async (values) => {
+    setBatchBorrowSubmitting(true)
+    try {
+      const result = await batchUpdateEquipmentBorrow({
+        assetCodes: selectedRowKeys,
+        borrowable: values.borrowable,
+        allowedBorrowTypes: values.allowedBorrowTypes,
+      })
+      const successCount = result?.successCount ?? 0
+      const failCount = result?.failCount ?? 0
+      if (failCount > 0) {
+        message.warning(`批量借用设置完成：成功 ${successCount} 台，失败 ${failCount} 台`)
+      } else {
+        message.success(`已更新 ${successCount} 台设备的借用设置`)
+      }
+      setBatchBorrowModalOpen(false)
+      setSelectedRowKeys([])
+      await loadData()
+    } catch (error) {
+      message.error(error.message || '批量借用设置失败')
+    } finally {
+      setBatchBorrowSubmitting(false)
+    }
+  }
+
   const handleBatchSubmit = async (values) => {
     setBatchSubmitting(true)
     try {
@@ -179,6 +265,59 @@ export const RoomEquipmentPage = () => {
       setBatchSubmitting(false)
     }
   }
+
+  const openDeleteConfirm = (assetCode, event) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    setDeleteConfirm({ mode: 'single', assetCode })
+  }
+
+  const openBatchDeleteConfirm = () => {
+    if (selectedRowKeys.length === 0) {
+      return
+    }
+    setDeleteConfirm({ mode: 'batch' })
+  }
+
+  const closeDeleteConfirm = () => {
+    if (deleteSubmitting) {
+      return
+    }
+    setDeleteConfirm(null)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) {
+      return
+    }
+    setDeleteSubmitting(true)
+    try {
+      if (deleteConfirm.mode === 'single') {
+        await deleteEquipment(deleteConfirm.assetCode)
+        message.success('已删除')
+      } else {
+        const result = await batchDeleteEquipment({ assetCodes: selectedRowKeys })
+        const successCount = result?.successCount ?? 0
+        const failCount = result?.failCount ?? 0
+        if (failCount > 0) {
+          message.warning(`批量删除完成：成功 ${successCount} 台，失败 ${failCount} 台`)
+        } else {
+          message.success(`已删除 ${successCount} 台设备`)
+        }
+      }
+      setDeleteConfirm(null)
+      setSelectedRowKeys([])
+      await loadData()
+    } catch (error) {
+      message.error(error.message || '删除失败')
+    } finally {
+      setDeleteSubmitting(false)
+    }
+  }
+
+  const deleteModalTitle = deleteConfirm?.mode === 'batch'
+    ? `确认删除已选 ${selectedRowKeys.length} 台设备？`
+    : `确认删除设备 ${deleteConfirm?.assetCode || ''}？`
 
   const rowSelection = useMemo(
     () => ({
@@ -214,6 +353,11 @@ export const RoomEquipmentPage = () => {
       render: (v) => <Tag>{v || '未知'}</Tag>,
     },
     {
+      title: '借用类型',
+      width: 120,
+      render: (_, record) => renderBorrowTypeCell(record),
+    },
+    {
       title: '品牌型号',
       width: 140,
       render: (_, record) => formatBrandModel(record),
@@ -226,11 +370,18 @@ export const RoomEquipmentPage = () => {
     },
     {
       title: '操作',
-      width: 80,
+      width: isAdmin ? 140 : 80,
       render: (_, record) => (
-        <Button type="link" onClick={() => goToEquipment(record.assetCode)}>
-          更新
-        </Button>
+        <Space size={0}>
+          <Button type="link" onClick={() => goToEquipment(record.assetCode)}>
+            更新
+          </Button>
+          {isAdmin && (
+            <Button type="link" danger onClick={(event) => openDeleteConfirm(record.assetCode, event)}>
+              删除
+            </Button>
+          )}
+        </Space>
       ),
     },
   ]
@@ -264,6 +415,12 @@ export const RoomEquipmentPage = () => {
               onChange={handleStatusChange}
             />
             <Select
+              style={{ width: isMobile ? '100%' : undefined, minWidth: isMobile ? undefined : 168 }}
+              value={borrowType}
+              options={BORROW_TYPE_FILTER_OPTIONS}
+              onChange={handleBorrowTypeChange}
+            />
+            <Select
               style={{ width: isMobile ? '100%' : undefined, minWidth: isMobile ? undefined : 140 }}
               value={sortOrder}
               options={SORT_OPTIONS}
@@ -277,6 +434,25 @@ export const RoomEquipmentPage = () => {
             >
               批量更新{selectedRowKeys.length > 0 ? `（${selectedRowKeys.length}）` : ''}
             </Button>
+            {isAdmin && (
+              <>
+                <Button
+                  block={isMobile}
+                  disabled={selectedRowKeys.length === 0}
+                  onClick={openBatchBorrowModal}
+                >
+                  批量借用设置{selectedRowKeys.length > 0 ? `（${selectedRowKeys.length}）` : ''}
+                </Button>
+                <Button
+                  danger
+                  block={isMobile}
+                  disabled={selectedRowKeys.length === 0}
+                  onClick={openBatchDeleteConfirm}
+                >
+                  批量删除{selectedRowKeys.length > 0 ? `（${selectedRowKeys.length}）` : ''}
+                </Button>
+              </>
+            )}
           </Space>
         </Space>
 
@@ -304,6 +480,17 @@ export const RoomEquipmentPage = () => {
                     >
                       更新
                     </Button>,
+                    ...(isAdmin ? [
+                      <Button
+                        key="delete"
+                        type="link"
+                        size="small"
+                        danger
+                        onClick={(event) => openDeleteConfirm(record.assetCode, event)}
+                      >
+                        删除
+                      </Button>,
+                    ] : []),
                   ]}
                 >
                   <List.Item.Meta
@@ -318,6 +505,7 @@ export const RoomEquipmentPage = () => {
                       <Space wrap size={[4, 4]}>
                         <Text strong>{record.assetCode}</Text>
                         <Tag>{record.usageStatus || '未知'}</Tag>
+                        {renderBorrowTypeCell(record)}
                       </Space>
                     )}
                     description={(
@@ -345,10 +533,33 @@ export const RoomEquipmentPage = () => {
             rowSelection={rowSelection}
             pagination={paginationConfig}
             locale={{ emptyText: '该房间暂无设备' }}
-            scroll={{ x: 720 }}
+            scroll={{ x: isAdmin ? 900 : 840 }}
           />
         )}
       </Card>
+
+      <Modal
+        title={`批量借用设置（已选 ${selectedRowKeys.length} 台）`}
+        open={batchBorrowModalOpen}
+        onCancel={() => setBatchBorrowModalOpen(false)}
+        onOk={() => borrowBatchForm.submit()}
+        confirmLoading={batchBorrowSubmitting}
+        okText="确认保存"
+        destroyOnClose
+      >
+        <Form form={borrowBatchForm} layout="vertical" onFinish={handleBatchBorrowSubmit}>
+          <Form.Item name="borrowable" label="开放借用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item
+            name="allowedBorrowTypes"
+            label="允许类型"
+            rules={[{ required: true, message: '请选择允许类型' }]}
+          >
+            <Select options={ALLOWED_BORROW_TYPE_OPTIONS} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title={`批量更新（已选 ${selectedRowKeys.length} 台）`}
@@ -378,6 +589,20 @@ export const RoomEquipmentPage = () => {
             <Input.TextArea rows={2} placeholder="可选，如批量盘点说明" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={deleteModalTitle}
+        open={Boolean(deleteConfirm)}
+        onCancel={closeDeleteConfirm}
+        onOk={handleDeleteConfirm}
+        confirmLoading={deleteSubmitting}
+        okText="确认删除"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        destroyOnClose
+      >
+        设备将标记为已删除，列表中不再显示，数据仍保留在系统中。
       </Modal>
     </div>
   )

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Input, List, Row, Space, Spin, Tag, Typography, message } from 'antd'
-import { BarcodeOutlined, DownloadOutlined, HistoryOutlined, ImportOutlined, LogoutOutlined } from '@ant-design/icons'
-import { useAuthStore } from 'entities/auth'
+import { BarcodeOutlined, DownloadOutlined, HistoryOutlined, ImportOutlined } from '@ant-design/icons'
 import { exportEquipmentExcel, fetchRooms, searchEquipment } from 'entities/equipment'
 import { ROUTES } from 'shared/constants/routes'
 import { withReturnPath } from 'shared/utils/navigation'
@@ -12,7 +11,6 @@ const { Title, Text } = Typography
 export const HomePage = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuthStore()
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -52,11 +50,6 @@ export const HomePage = () => {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-    navigate(ROUTES.LOGIN)
-  }
-
   const handleExport = async () => {
     setExporting(true)
     try {
@@ -70,12 +63,8 @@ export const HomePage = () => {
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <Title level={3} style={{ margin: 0 }}>实验室设备管理</Title>
-          <Text type="secondary">欢迎，{user?.name || user?.username}</Text>
-        </div>
+    <div>
+      <div className="page-header" style={{ marginBottom: 16 }}>
         <Space className="page-header-actions" wrap>
           <Button icon={<BarcodeOutlined />} type="primary" onClick={() => navigate(ROUTES.SCAN)}>
             扫码更新
@@ -85,9 +74,6 @@ export const HomePage = () => {
           </Button>
           <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
             导出数据
-          </Button>
-          <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-            退出
           </Button>
         </Space>
       </div>

@@ -1,0 +1,1 @@
+export { BorrowApplicationDetailPage } from './BorrowApplicationDetailPage'

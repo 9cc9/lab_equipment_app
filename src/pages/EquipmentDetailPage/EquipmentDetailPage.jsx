@@ -10,6 +10,7 @@ import {
   Select,
   Space,
   Spin,
+  Switch,
   Table,
   Typography,
   message,
@@ -21,6 +22,8 @@ import {
   fetchRooms,
   updateEquipmentStatus,
 } from 'entities/equipment'
+import { returnBorrowApplication, updateEquipmentBorrow } from 'entities/borrow'
+import { isAdminUser, useAuthStore } from 'entities/auth'
 import { ROUTES, USAGE_STATUS_OPTIONS } from 'shared/constants/routes'
 import { navigateBack } from 'shared/utils/navigation'
 
@@ -36,6 +39,9 @@ export const EquipmentDetailPage = () => {
   const [equipment, setEquipment] = useState(null)
   const [rooms, setRooms] = useState([])
   const [changes, setChanges] = useState([])
+  const [borrowSaving, setBorrowSaving] = useState(false)
+  const [borrowForm] = Form.useForm()
+  const isAdmin = isAdminUser(useAuthStore((s) => s.user))
 
   useEffect(() => {
     loadAll()
@@ -49,6 +55,10 @@ export const EquipmentDetailPage = () => {
         fetchRooms(),
       ])
       setEquipment(equipmentData)
+      borrowForm.setFieldsValue({
+        borrowable: equipmentData.borrowable === true,
+        allowedBorrowTypes: equipmentData.allowedBorrowTypes || 'ALL',
+      })
       setRooms(Array.isArray(roomData) ? roomData : [])
       form.setFieldsValue({
         usageStatus: equipmentData.usageStatus || '在用',
@@ -90,6 +100,32 @@ export const EquipmentDetailPage = () => {
   }
 
   const handleBack = () => navigateBack(navigate, location, ROUTES.HOME)
+
+  const onSaveBorrow = async (values) => {
+    setBorrowSaving(true)
+    try {
+      const updated = await updateEquipmentBorrow(assetCode, {
+        borrowable: values.borrowable,
+        allowedBorrowTypes: values.allowedBorrowTypes,
+      })
+      setEquipment(updated)
+      message.success('借用设置已保存')
+    } catch (error) {
+      message.error(error.message || '保存失败')
+    } finally {
+      setBorrowSaving(false)
+    }
+  }
+
+  const handleReturnBorrow = async (borrowId) => {
+    try {
+      await returnBorrowApplication(borrowId, '')
+      message.success('借用已结束')
+      loadAll()
+    } catch (error) {
+      message.error(error.message || '归还失败')
+    }
+  }
 
   if (loading) {
     return (
@@ -152,6 +188,75 @@ export const EquipmentDetailPage = () => {
           <Descriptions.Item label="保管人">{equipment.custodian || '-'}</Descriptions.Item>
         </Descriptions>
       </Card>
+
+      {(equipment.activeBorrows?.length > 0 || equipment.borrowable != null) && (
+        <Card title="进行中借用人" style={{ marginBottom: 16 }}>
+          {equipment.activeBorrows?.length > 0 ? (
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={equipment.activeBorrows}
+              columns={[
+                {
+                  title: '类型',
+                  dataIndex: 'borrowType',
+                  width: 80,
+                  render: (v) => (v === 'EXTERNAL' ? '外借' : '室内'),
+                },
+                { title: '姓名', dataIndex: 'borrowerName' },
+                { title: '学号', dataIndex: 'studentNo' },
+                { title: '手机', dataIndex: 'borrowerPhone' },
+                {
+                  title: '预计归还',
+                  dataIndex: 'expectedEndAt',
+                  render: (v) => (v ? new Date(v).toLocaleString() : '-'),
+                },
+                {
+                  title: '状态',
+                  render: (_, r) => {
+                    if (r.status === 'RETURN_PENDING') return '结束待确认'
+                    if (r.overdue) return '已逾期'
+                    return '借用中'
+                  },
+                },
+                {
+                  title: '操作',
+                  render: (_, r) => (
+                    <Button type="link" size="small" onClick={() => handleReturnBorrow(r.id)}>
+                      借用结束
+                    </Button>
+                  ),
+                },
+              ]}
+            />
+          ) : (
+            <Text type="secondary">暂无进行中的借用</Text>
+          )}
+        </Card>
+      )}
+
+      {isAdmin && (
+        <Card title="开放借用（仅管理员）" style={{ marginBottom: 16 }}>
+          <Form form={borrowForm} layout="vertical" onFinish={onSaveBorrow}>
+            <Form.Item name="borrowable" label="开放借用" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item name="allowedBorrowTypes" label="允许类型">
+              <Select
+                options={[
+                  { label: '外借 + 室内', value: 'ALL' },
+                  { label: '仅外借', value: 'EXTERNAL' },
+                  { label: '仅室内', value: 'IN_LAB' },
+                ]}
+              />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" loading={borrowSaving}>
+              保存借用设置
+            </Button>
+          </Form>
+        </Card>
+      )}
 
       <Card title="更新状态与房间" style={{ marginBottom: 16 }}>
         <Form form={form} layout="vertical" onFinish={onSave}>

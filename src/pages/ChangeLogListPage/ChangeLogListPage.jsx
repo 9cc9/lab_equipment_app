@@ -11,11 +11,27 @@ const { Title } = Typography
 const FIELD_LABELS = {
   usageStatus: '现状',
   roomCode: '房间',
+  status: '状态',
 }
 
 const SOURCE_LABELS = {
   SCAN: '扫码',
   BATCH: '批量',
+  DELETE: '删除',
+  BATCH_DELETE: '批量删除',
+}
+
+const STATUS_VALUE_LABELS = {
+  ENABLED: '启用',
+  DELETED: '已删除',
+}
+
+const formatChangeValue = (value, fieldName) => {
+  if (!value) return '-'
+  if (fieldName === 'status') {
+    return STATUS_VALUE_LABELS[value] || value
+  }
+  return value
 }
 
 const formatDateTime = (value) => {
@@ -27,6 +43,7 @@ const FIELD_FILTER_OPTIONS = [
   { label: '全部', value: '' },
   { label: '现状', value: 'usageStatus' },
   { label: '房间', value: 'roomCode' },
+  { label: '状态', value: 'status' },
 ]
 
 export const ChangeLogListPage = () => {
@@ -94,12 +111,13 @@ export const ChangeLogListPage = () => {
       title: '原值',
       dataIndex: 'oldValue',
       width: 100,
-      render: (value) => value || '-',
+      render: (value, record) => formatChangeValue(value, record.fieldName),
     },
     {
       title: '新值',
       dataIndex: 'newValue',
       width: 100,
+      render: (value, record) => formatChangeValue(value, record.fieldName),
     },
     {
       title: '备注',

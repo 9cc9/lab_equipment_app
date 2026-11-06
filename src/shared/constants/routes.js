@@ -6,6 +6,13 @@ export const ROUTES = {
   SCAN: '/scan',
   IMPORT: '/admin/import',
   CHANGES: '/changes',
+  BORROW: '/borrow',
+  BORROW_MINE: '/borrow/mine',
+  BORROW_APPLICATION: (id) => `/borrow/applications/${encodeURIComponent(id)}`,
+  BORROW_APPLY: (code) => `/borrow/${encodeURIComponent(code)}`,
+  STAFF_BORROW: '/staff/borrow',
+  /** @deprecated 使用 STAFF_BORROW */
+  ADMIN_BORROW: '/staff/borrow',
   ROOM: (code) => `/rooms/${encodeURIComponent(code)}`,
   EQUIPMENT: (code) => `/equipment/${encodeURIComponent(code)}`,
 }

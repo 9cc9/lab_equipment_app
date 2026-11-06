@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ConfigProvider } from 'antd'
+import { App as AntdApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { Router } from './router'
 import { useAuthStore } from 'entities/auth'
@@ -16,7 +16,9 @@ export const App = () => {
 
   return (
     <ConfigProvider locale={zhCN}>
-      <Router />
+      <AntdApp>
+        <Router />
+      </AntdApp>
     </ConfigProvider>
   )
 }

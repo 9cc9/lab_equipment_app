@@ -5,11 +5,12 @@ import { API_ENDPOINTS } from 'shared/api/endpoints'
 
 export const fetchRooms = () => apiClient.get(API_ENDPOINTS.ROOM.LIST)
 
-export const fetchRoomEquipment = (roomCode, { keyword, usageStatus, sortOrder } = {}) => {
+export const fetchRoomEquipment = (roomCode, { keyword, usageStatus, sortOrder, borrowType } = {}) => {
   const params = new URLSearchParams()
   if (keyword) params.set('keyword', keyword)
   if (usageStatus) params.set('usageStatus', usageStatus)
   if (sortOrder) params.set('sortOrder', sortOrder)
+  if (borrowType) params.set('borrowType', borrowType)
   const qs = params.toString()
   const url = qs
     ? `${API_ENDPOINTS.ROOM.EQUIPMENT(roomCode)}?${qs}`
@@ -28,6 +29,15 @@ export const updateEquipmentStatus = (assetCode, payload) =>
 
 export const batchUpdateEquipmentStatus = (payload) =>
   apiClient.post(API_ENDPOINTS.EQUIPMENT.BATCH_UPDATE_STATUS, payload)
+
+export const deleteEquipment = (assetCode, payload = {}) =>
+  apiClient.post(API_ENDPOINTS.EQUIPMENT.DELETE(assetCode), payload)
+
+export const batchDeleteEquipment = (payload) =>
+  apiClient.post(API_ENDPOINTS.EQUIPMENT.BATCH_DELETE, payload)
+
+export const batchUpdateEquipmentBorrow = (payload) =>
+  apiClient.post(API_ENDPOINTS.EQUIPMENT.BATCH_UPDATE_BORROW, payload)
 
 export const fetchEquipmentChanges = (equipmentId) =>
   apiClient.get(API_ENDPOINTS.EQUIPMENT.CHANGES(equipmentId))

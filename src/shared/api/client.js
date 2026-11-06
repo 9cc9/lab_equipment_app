@@ -1,6 +1,45 @@
 import { getApiBaseUrl } from '../constants/config.js'
 import { POST_LOGIN_REDIRECT_KEY } from '../constants/routes.js'
 
+const API_SUCCESS_CODE = 'SUCCESS'
+
+/** @param {unknown} payload */
+export function extractApiErrorMessage(payload, fallback = '请求失败') {
+  if (!payload || typeof payload !== 'object') {
+    return fallback
+  }
+  const record = /** @type {Record<string, unknown>} */ (payload)
+  const msg = record.message ?? record.msg ?? record.errorMessage
+  return typeof msg === 'string' && msg.trim() ? msg.trim() : fallback
+}
+
+/** @param {unknown} payload */
+function isApiBusinessFailure(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return false
+  }
+  const record = /** @type {Record<string, unknown>} */ (payload)
+  if (record.success === false) {
+    return true
+  }
+  if (record.success === true) {
+    return false
+  }
+  const code = record.resultCode
+  return typeof code === 'string' && code.length > 0 && code !== API_SUCCESS_CODE
+}
+
+/** @param {unknown} payload */
+function unwrapApiPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return payload
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return /** @type {{ data: unknown }} */ (payload).data
+  }
+  return payload
+}
+
 class ApiClient {
   async request(url, options = {}) {
     const { method = 'GET', body, headers = {} } = options
@@ -48,19 +87,19 @@ class ApiClient {
         }
         window.location.href = '/login'
       }
-      throw new Error(errorData.message || '未登录或会话已过期')
+      throw new Error(extractApiErrorMessage(errorData, '未登录或会话已过期'))
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || `请求失败: ${response.status}`)
+      throw new Error(extractApiErrorMessage(errorData, `请求失败: ${response.status}`))
     }
 
-    const data = await response.json()
-    if (data && data.success === false) {
-      throw new Error(data.message || '请求失败')
+    const data = await response.json().catch(() => ({}))
+    if (isApiBusinessFailure(data)) {
+      throw new Error(extractApiErrorMessage(data))
     }
-    return data.data !== undefined ? data.data : data
+    return unwrapApiPayload(data)
   }
 
   get(url, options) {
